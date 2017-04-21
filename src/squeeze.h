@@ -31,7 +31,7 @@
 #define ENGINE_PARALLEL_TEMPERING 2
 
 // Regularizers
-#define NREGULS 16
+#define NREGULS 17
 #define REG_MODELPARAM 0
 #define REG_CENTERING 1
 #define REG_PRIORIMAGE 2
@@ -40,16 +40,18 @@
 #define REG_TV 5
 #define REG_SPOT 6
 #define REG_LAP 7
-#define REG_L0 8
-#define REG_L0CDF53 9
-#define REG_L1CDF53 10
-#define REG_L0CDF97 11
-#define REG_L1CDF97 12
-#define REG_L0ATROUS 13
-#define REG_L1ATROUS 14
-#define REG_TRANSPECL2 15
+#define REG_EDGE 8
+#define REG_L0 9
+#define REG_L0CDF53 10
+#define REG_L1CDF53 11
+#define REG_L0CDF97 12
+#define REG_L1CDF97 13
+#define REG_L0ATROUS 14
+#define REG_L1ATROUS 15
+#define REG_TRANSPECL2 16
 
-const char *reg_names[NREGULS] = {"PARAM", "C", "PRI", "ENT", "DEN", "TV", "UD", "LAP", "L0", "L0CDF53","L1CDF53", "L0CDF97", "L1CDF97",  "L0ATROUS", "L1ATROUS", "TS"};
+
+const char *reg_names[NREGULS] = {"PARAM", "C", "PRI", "ENT", "DEN", "TV", "UD", "LAP", "EDGE","L0", "L0CDF53","L1CDF53", "L0CDF97", "L1CDF97",  "L0ATROUS", "L1ATROUS", "TS"};
 
 // Mathematical constants
 #define MAS_RAD          206264806.2
@@ -211,6 +213,7 @@ double L0_CDF97(const double *x, const double *pr, const double eps, const int n
 double L1_CDF97(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux);
 double L0_ATROUS(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux);
 double L1_ATROUS(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux);
+double EDGE(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux);
 void atrous_set(int idx); // a trous setup
 void atrous_fwd(const double* x, double *wav, const int nx, const int ny, const int nscales);// a trous main
 

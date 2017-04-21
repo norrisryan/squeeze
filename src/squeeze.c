@@ -1142,6 +1142,9 @@ int main(int argc, char **argv)
         if (reg_param[REG_L1ATROUS] > 0.0)
           new_reg_value[chan * NREGULS + REG_L1ATROUS] = L1_ATROUS(&image[chan * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, (const double) nelements);
 
+        if (reg_param[REG_EDGE] > 0.0)
+          new_reg_value[chan * NREGULS + REG_EDGE] = EDGE(&image[chan * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, (const double) nelements);
+
 
         //printf("%lf ", fabs(new_reg_value[REG_TRANSPECL2]-transpec(nwavr, axis_len, image, (const double) nelements)));
         //       if (reg_param[REG_TRANSPECL2] > 0.0)
@@ -1632,6 +1635,7 @@ void printhelp(void)
   printf("  -ud param     : Uniform disc regularization multiplier.\n");
   printf("  -tv param     : Total variation regularization multiplier.\n");
   printf("  -la param     : Laplacian regularization multiplier.\n");
+  printf("  -edge param   : Edge focused regularization multiplier.\n");
   printf("  -l0 param     : L0 sparsity norm multiplier.\n");
   printf("  -ts param     : Transpectral L2 regularization for polychromatic reconstructions.\n");
   printf("  -fv param     : Field of view regularizer.\n");
@@ -2735,6 +2739,9 @@ void compute_regularizers(const double *reg_param, double *reg_value, const doub
     if (reg_param[REG_LAP] > 0.0)
       reg_value[w * NREGULS + REG_LAP] = LAP(&image[w * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, fluxscaling);
 
+    if (reg_param[REG_EDGE] > 0.0)
+        reg_value[w * NREGULS + REG_EDGE] = EDGE(&image[w * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, fluxscaling);
+
     if (reg_param[REG_L0] > 0.0)
       reg_value[w * NREGULS + REG_L0] = L0(&image[w * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, fluxscaling);
 
@@ -3039,6 +3046,8 @@ bool read_commandline(int *argc, char **argv, bool *benchmark, bool *use_v2, boo
         sscanf(argv[i + 1], "%lf", &reg_param[REG_TV]);
       else if (strcmp(argv[i], "-la") == 0)
         sscanf(argv[i + 1], "%lf", &reg_param[REG_LAP]);
+      else if (strcmp(argv[i], "-edge") == 0)
+        sscanf(argv[i + 1], "%lf", &reg_param[REG_EDGE]);
       else if (strcmp(argv[i], "-l0CDF53") == 0)
         sscanf(argv[i + 1], "%lf", &reg_param[REG_L0CDF53]);
       else if (strcmp(argv[i], "-l1CDF53") == 0)
