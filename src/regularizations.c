@@ -356,7 +356,7 @@ double EDGE(const double *x, const double *pr, const double eps, const int nx, c
 // corresponding to a value in the prior image of about 1-e6
 
   register int i, j, m, n, off,offnonz, nnonz;
-  double dx, dy, pixreg,totalnonz, averagenonz, lap;
+  double dx, dy, pixreg,totalnonz, averagenonz, mediannonz,lap,maxpix,minpix,thresh;
 
 
   //  double pr_threshold=-13.8;
@@ -366,16 +366,28 @@ double  L1edge = 0.0;
 nnonz=0.0;
 totalnonz=0.0;
 lap=0.0;
+maxpix=0.0;
+minpix=100000000;
 //calculate mean of non zero pixels
 for (m= 0; m <(ny*nx) ; m++)
 	{
 	if (x[m] >0.0)
 		{
-		 totalnonz+=x[m];
+     if (x[m]> maxpix)
+     {
+       maxpix=x[m];
+     }
+     if (x[m]< minpix)
+      {
+        minpix=x[m];
+      }
+     totalnonz+=x[m];
 		 nnonz=nnonz+1;
 		}
 	}
 averagenonz=totalnonz/nnonz;
+mediannonz=(maxpix/maxpix-minpix/maxpix)/2.0;
+thresh=mediannonz/averagenonz;
 //compute lapacian and penalize spots with shifts if pixel average flux is greater than 1.3*average
 
    for (j = 1; j < ny - 1; j++)
@@ -404,7 +416,7 @@ averagenonz=totalnonz/nnonz;
     	  	pixreg = sqrt(sqrt(dx * dx + dy * dy + eps * eps));
 	if (abs(lap) > 0)
 	{
-		if (x[i+off]<0.8*averagenonz)
+		if (x[i+off]<thresh) //instead of 0.8*averagenonz
 		{
 			L05edge+=pixreg;
 		}
@@ -419,7 +431,7 @@ averagenonz=totalnonz/nnonz;
       lap= fabs(x[1 + off] + x[off - nx] + x[off + nx] - 3. * x[off]);
 	if (abs(lap) > 0)
 	{
-		if (x[i+off]<0.8*averagenonz)
+		if (x[i+off]<thresh)
 		{
 			L05edge+=pixreg;
 		}
@@ -433,7 +445,7 @@ averagenonz=totalnonz/nnonz;
     lap= fabs(x[ nx - 2 + off] + x[nx - 1 + off - nx] + x[nx - 1  + off + nx] - 3. * x[nx - 1 + off]);
 	if (lap > 0)
 	{
-		if (x[i+off]<0.8*averagenonz)
+		if (x[i+off]<thresh)
 		{
 			L05edge+=pixreg;
 		}
@@ -451,7 +463,7 @@ averagenonz=totalnonz/nnonz;
     lap= fabs(x[ i - 1 ] + x[i + 1] + x[i + off + nx] - 3. * x[i + off]);
     if (abs(lap) > 0)
 	{
-		if (x[i+off] < 0.8*averagenonz)
+		if (x[i+off] < thresh)
 		{
 			L05edge+=pixreg;
 		}
@@ -466,7 +478,7 @@ averagenonz=totalnonz/nnonz;
     lap= fabs(x[ i - 1 + off] + x[i + 1 + off] + x[i + off - nx] - 3. * x[i + off]);
   if (abs(lap) > 0)
 	{
-		if (x[i+off] < 0.8*averagenonz)
+		if (x[i+off] < thresh)
 		{
 			L05edge+=pixreg;
 		}
