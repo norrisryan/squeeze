@@ -1,0 +1,1 @@
+/usr/bin/cc     CMakeFiles/TestProg.dir/testprog.c.o  -o TestProg -rdynamic libcfitsio.a -lpthread -lm 

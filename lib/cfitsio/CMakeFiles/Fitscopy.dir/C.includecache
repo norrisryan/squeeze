@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/fitscopy.c
+stdio.h
+-
+fitsio.h
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/fitsio.h
+
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/fitsio.h
+stdio.h
+-
+sys/types.h
+-
+stdlib.h
+-
+limits.h
+-
+longnam.h
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/longnam.h
+
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/longnam.h
+

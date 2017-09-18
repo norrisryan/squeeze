@@ -30,7 +30,7 @@
 #define ENGINE_PARALLEL_TEMPERING 2
 
 // Regularizers
-#define NREGULS 16
+#define NREGULS 17
 #define REG_MODELPARAM 0
 #define REG_CENTERING 1
 #define REG_PRIORIMAGE 2
@@ -39,17 +39,18 @@
 #define REG_TV 5
 #define REG_SPOT 6
 #define REG_LAP 7
-#define REG_L0 8
-#define REG_L0CDF53 9
-#define REG_L1CDF53 10
-#define REG_L0CDF97 11
-#define REG_L1CDF97 12
-#define REG_L0ATROUS 13
-#define REG_L1ATROUS 14
-#define REG_TRANSPECL2 15
+#define REG_EDGE 8
+#define REG_L0 9
+#define REG_L0CDF53 10
+#define REG_L1CDF53 11
+#define REG_L0CDF97 12
+#define REG_L1CDF97 13
+#define REG_L0ATROUS 14
+#define REG_L1ATROUS 15
+#define REG_TRANSPECL2 16
 
 const char *reg_names[NREGULS] = {"PARAM", "C",       "PRI",     "ENT",     "DEN",     "TV",       "UD",       "LAP",
-                                  "L0",    "L0CDF53", "L1CDF53", "L0CDF97", "L1CDF97", "L0ATROUS", "L1ATROUS", "TS"};
+                                  "EDGE", "L0",    "L0CDF53", "L1CDF53", "L0CDF97", "L1CDF97", "L0ATROUS", "L1ATROUS", "TS"};
 
 // Mathematical constants
 #define MAS_RAD 206264806.2
@@ -141,7 +142,7 @@ bool read_commandline(int *argc, char **argv, bool *benchmark, bool *use_visamp,
                       bool *use_t3phi, bool *use_t4phi, bool *diffvis, bool *use_tempfitswriting, bool *use_bandwidthsmearing, int *minimization_engine,
                       bool *dumpchain, double *mas_pixel, unsigned short *axis_len, long *depth, long *niter, long *nelements, double *f_anywhere,
                       double *f_copycat, int *nchains, int *nthreads, double *tempschedc, double *fov, double *chi2_temp, double *chi2_target, double *tmin,
-                      double *prob_auto, double *uvtol, char *output_filename, char *init_filename, char *prior_filename, double *visamps, double *visampa,
+                      double *prob_auto, double *uvtol, char *output_filename, char *init_filename, char *prior_filename, char *mask_filename, double *visamps, double *visampa,
                       double *visphis, double *visphia, double *v2s, double *v2a, double *t3amps, double *t3ampa, double *t3phia, double *t3phis,
                       double *t4amps, double *t4ampa, double *t4phia, double *t4phis, double *fluxs, double *cvfwhm, double *reg_param, double *init_param,
                       double **pwavmin, double **pwavmax, int *nwavr, bool *wavauto);
@@ -231,6 +232,7 @@ double L0_CDF97(const double *x, const double *pr, const double eps, const int n
 double L1_CDF97(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux);
 double L0_ATROUS(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux);
 double L1_ATROUS(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux);
+double EDGE(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux);
 void atrous_set(int idx);                                                                     // a trous setup
 void atrous_fwd(const double *x, double *wav, const int nx, const int ny, const int nscales); // a trous main
 

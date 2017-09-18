@@ -1113,7 +1113,7 @@ int import_single_epoch_oifits(char *filename, bool use_visamp, bool use_v2, boo
 
   return (status); /* zero means ok */
 }
-
+/*
 void add_new_uv(long *obs_index, long *uvindex, double new_u, double new_v, double new_uv_lambda, double new_uv_dlambda, double new_uv_time, double *table_u,
                 double *table_v, double *table_uv_lambda, double *table_uv_dlambda, double *table_uv_time, double uvtol)
 {
@@ -1159,6 +1159,34 @@ void add_new_uv(long *obs_index, long *uvindex, double new_u, double new_v, doub
       *obs_index = redundant_index; // redundant, refer to the uv point with which the new uv point is redundant
     }
 }
+*/
+
+void add_new_uv(long *obs_index, long *uvindex, double new_u, double new_v, double new_uv_lambda, double new_uv_dlambda, double new_uv_time, double *table_u,
+                double *table_v, double *table_uv_lambda, double *table_uv_dlambda, double *table_uv_time, double uvtol)
+{
+  // Check previous uv points for redundancy, and only create a new uv point if needed
+    table_u[*uvindex] = new_u;
+      table_v[*uvindex] = new_v;
+      table_uv_time[*uvindex] = new_uv_time;
+      table_uv_lambda[*uvindex] = new_uv_lambda;
+      table_uv_dlambda[*uvindex] = new_uv_dlambda;
+      *obs_index = *uvindex;
+      (*uvindex)++;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 int write_best_oifits(char *filestring, double complex *mod_vis)
 {

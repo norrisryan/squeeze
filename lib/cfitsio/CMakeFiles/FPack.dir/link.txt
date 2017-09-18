@@ -1,0 +1,1 @@
+/usr/bin/cc     CMakeFiles/FPack.dir/fpack.c.o CMakeFiles/FPack.dir/fpackutil.c.o  -o FPack -rdynamic libcfitsio.a -lpthread -lm 

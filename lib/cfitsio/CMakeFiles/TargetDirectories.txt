@@ -1,0 +1,13 @@
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/install.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/rebuild_cache.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/FPack.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/cfitsio.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/test.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/TestProg.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/Funpack.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/Fitscopy.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/list_install_components.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/cookbook.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/install/strip.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/install/local.dir
+/home/norris/RESEARCH/EHT/squeeze/lib/cfitsio/CMakeFiles/edit_cache.dir

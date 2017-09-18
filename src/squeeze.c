@@ -96,8 +96,11 @@ int main(int argc, char **argv)
   double ndf, flat_chi2;
   double tmin = DEFAULT_TMIN, chi2_temp = TARGET_SCALED_CHI2, chi2_target = 0.0;
   double *prior_image = NULL;
-
+  double *initial_image = NULL;
+  double *mask_image = NULL;
   unsigned short *initial_x, *initial_y;
+  //unsigned short *mask_x, *mask_y;
+
 
   double prob_auto = -1.0;
 
@@ -107,7 +110,6 @@ int main(int argc, char **argv)
   bool benchmark = FALSE;
   long i, j, k, w, depth = DEFAULT_DEPTH, offset = 0;
 
-  double *initial_image = NULL;
   char dummy_char[MAX_STRINGS], param_string[MAX_STRINGS];
   /* Variables needed for file i/o and creation of transform */
   double multx = 0, multy = 0, dtemp, ftot;
@@ -121,12 +123,14 @@ int main(int argc, char **argv)
   char output_filename[MAX_STRINGS] = "output";
   char prior_filename[MAX_STRINGS] = "";
   char init_filename[MAX_STRINGS] = "";
+  char mask_filename[MAX_STRINGS] = "";
 
   double nullval = 0;
   int dummy_int;
 
   int nfound;
   double in_mas_pixel;
+//  double mask_mas_pixel;
   int nwavi = 1, nwavp = 1;
   long *in_naxes;
 
@@ -166,7 +170,7 @@ int main(int argc, char **argv)
   if (read_commandline(&argc, argv, &benchmark, &use_visamp, &use_v2, &use_t3amp, &use_t4amp, &use_visphi, &use_t3phi, &use_t4phi, &diffvis,
                        &use_tempfitswriting, &use_bandwidthsmearing, &minimization_engine, &dumpchain, &mas_pixel, &axis_len, &depth, &niter, &nelements,
                        &f_anywhere, &f_copycat, &nchains, &nthreads, &tempschedc, &fov, &chi2_temp, &chi2_target, &tmin, &prob_auto, &uvtol,
-                       &output_filename[0], &init_filename[0], &prior_filename[0], &visamps, &visampa, &visphis, &visphia, &v2s, &v2a, &t3amps, &t3ampa,
+                       &output_filename[0], &init_filename[0], &prior_filename[0], &mask_filename[0], &visamps, &visampa, &visphis, &visphia, &v2s, &v2a, &t3amps, &t3ampa,
                        &t3phia, &t3phis, &t4amps, &t4ampa, &t4phia, &t4phis, &fluxs, &cvfwhm, reg_param, init_params, &wavmin, &wavmax, &nwavr,
                        &wavauto) == FALSE)
     return 0;
@@ -271,6 +275,112 @@ int main(int argc, char **argv)
   printf("Reconst setup -- Pixel scale:   \t%lf mas/pixel\n", mas_pixel);
   printf("Reconst setup -- Image width:   \t%hu pixels\n", axis_len);
 
+  //Mask image
+
+  mask_image = malloc(nwavp * axis_len * axis_len * sizeof(double));
+  if (mask_filename[0] != 0)
+    {
+      status = 0;
+      printf("\nMask image -- Opening file : %s\n", mask_filename);
+          if (fits_open_file(&fptr, mask_filename, READONLY, &status))
+            printerror(status);
+
+          fits_read_key_lng(fptr, "NAXIS", &k, dummy_char, &status);
+
+          if ((nwavr > 1) && (k == 3))
+            in_naxes = malloc(3 * sizeof(long));
+          else
+            in_naxes = malloc(2 * sizeof(long));
+
+          if (fits_read_keys_lng(fptr, "NAXIS", 1, 3, in_naxes, &nfound, &status))
+            printerror(status);
+
+          if ((nwavr > 1) && (k == 3) && (nfound == 3))
+            {
+              if (in_naxes[2] != nwavr)
+                {
+                  printf(TEXT_COLOR_RED
+                         "Mask image -- Mismatch between number of channels for mask image ( = %ld) and reconstruction (= %d)\n" TEXT_COLOR_BLACK,
+                         in_naxes[2], nwavr);
+                  if (in_naxes[2] < nwavr)
+                    printf(TEXT_COLOR_RED "Mask image -- Channels will be initialized with the first channel of the mask image\n" TEXT_COLOR_BLACK);
+                }
+              nwavi = in_naxes[2];
+            }
+          else // image was 2D, but we want 3D in any case, so we had the extra degenerate dimension
+            nwavi = 1;
+
+          printf("Mask image -- reading %ld x %ld pixels x %d channel(s)\n", in_naxes[0], in_naxes[1], nwavi);
+
+          if (in_naxes[0] != in_naxes[1])
+            {
+              printf("Mask image -- input fits file must have a square array.");
+              getchar();
+            }
+
+          /* In axis_len has changed, we have to offset the old versus new images.*/
+          offset = (axis_len - in_naxes[0]) / 2;
+          if (axis_len != in_naxes[0])
+            {
+              printf("Mask image -- offset by : %ld pixels in x and y\n", offset);
+            }
+
+          /* read the SCALE keyword to get image scale */ // Disabled at the moment
+          if (fits_read_key_dbl(fptr, "SCALE", &in_mas_pixel, dummy_char, &status))
+            {
+              printf("Mask image -- no SCALE keyword in initial FITS image\n");
+              printf("Mask image -- pixel scale assumed to be same as current image\n");
+              in_mas_pixel = mas_pixel;
+              status = 0;
+            }
+          else
+            {
+              if (fabs(mas_pixel - in_mas_pixel) / fabs(mas_pixel) > 1e-3)
+                {
+                  printf("Mask image -- WARNING init image scale: %lf current %lf\n", in_mas_pixel, mas_pixel);
+                  getchar();
+                }
+            }
+
+          /* read in model parameters, if there are any... */
+          if (nparams > 0)
+            {
+              status = 0;
+              for (i = 0; i < nparams; ++i)
+                {
+                  sprintf(param_string, "MNPARAM%1ld", i + 1);
+                  if (!fits_read_key_dbl(fptr, param_string, &init_params[i], dummy_char, &status))
+                    {
+                      status = 0;
+                      printf("Mask image -- Could not find MNPARAM%1ld in header\n", i);
+                    }
+                }
+              status = 0;
+            }
+
+              //mask_image = malloc(in_naxes[0] * in_naxes[0] * nwavi * sizeof(double));
+          if (fits_read_img(fptr, TDOUBLE, 1, in_naxes[0] * in_naxes[0] * nwavi, &nullval, mask_image, &dummy_int, &status))
+            printerror(status);
+          fits_close_file(fptr, &status);
+for (i = 0; i < nwavp*axis_len * axis_len; ++i)
+        {
+          //printf("%lf ",mask_image[i]);
+          if(mask_image[i]>0)
+          mask_image[i]  =1.0 ;
+        }
+
+
+        }
+  else /* If we didn't define a mask image, the default is a all 1's */
+    {
+      for (i = 0; i < nwavp*axis_len * axis_len; ++i)
+        {
+          mask_image[i]=1.0 ;
+        }
+    }
+
+
+
   /* Initial/Starting image (command line -i)*/
   /* This can be either a command such as random that generates a random starting point */
   /* Or a FITS image. Unlike the prior image, the starting image is then "converted" into elements */
@@ -291,6 +401,7 @@ int main(int argc, char **argv)
               initial_x[i] = RngStream_RandInt(initrng, 0, 2147483647) % axis_len;
               initial_y[i] = RngStream_RandInt(initrng, 0, 2147483647) % axis_len;
             }
+
 
           // copy same random image at
           for (j = 0; j < nchains; ++j)
@@ -406,6 +517,12 @@ int main(int argc, char **argv)
           if (fits_read_img(fptr, TDOUBLE, 1, in_naxes[0] * in_naxes[0] * nwavi, &nullval, initial_image, &dummy_int, &status))
             printerror(status);
           fits_close_file(fptr, &status);
+// Multiply by mask here
+// HERE
+         if (mask_image != NULL)
+          for(i=0;i<in_naxes[0] * in_naxes[0] * nwavi;++i)
+           initial_image[i]*=mask_image[i];
+
           // Check flux normalization
           for (w = 0; w < nwavi; ++w)
             {
@@ -503,6 +620,7 @@ int main(int argc, char **argv)
           initial_x[i] = axis_len / 2;
           initial_y[i] = axis_len / 2;
         }
+
     }
 
   /* Defaults is to have the model parameters equal to 0 and fixed. */
@@ -678,8 +796,8 @@ int main(int argc, char **argv)
                                                 use_tempfitswriting, init_filename, ctrlcpressed, f_anywhere, f_copycat, prob_auto, tmin, chi2_target,         \
                                                 mas_pixel, niter, chi2_temp, flat_chi2, axis_len, lLikelihood_expectation, lLikelihood_deviation, nwavr,       \
                                                 nelements, nchains, tempschedc, uvwav2chan, uvtime2chan, nuv, nvisamp, nv2, nt3amp, nt4amp, nvisphi, nt3phi,   \
-                                                nt4phi, init_params, init_stepsize, initial_x, initial_y, reg_param, prior_image, cent_mult, fov, nparams,     \
-                                                xtransform, ytransform, ndf)
+                                                nt4phi, init_params, init_stepsize, initial_x, initial_y, reg_param,mask_image, prior_image, cent_mult, fov,   \
+                                                nparams,xtransform, ytransform, ndf)
 #endif
   {
 /* The current system state */
@@ -720,8 +838,11 @@ int main(int argc, char **argv)
     double complex *dummy_cpointer = NULL;
     double pipo = 0;
     double *image = malloc(nwavr * axis_len * axis_len * sizeof(double));
+    double *image_mask = malloc(nwavr * axis_len * axis_len * sizeof(double));
     unsigned short *element_x = malloc(nwavr * nelements * sizeof(unsigned short));
     unsigned short *element_y = malloc(nwavr * nelements * sizeof(unsigned short));
+    unsigned short *mask_element_x = malloc(nwavr * nelements * sizeof(unsigned short));
+    unsigned short *mask_element_y = malloc(nwavr * nelements * sizeof(unsigned short));
     double complex *im_vis = malloc(nuv * sizeof(double complex));
     double complex *new_im_vis = malloc(nuv * sizeof(double complex));
     double complex *new_mod_vis = malloc(nuv * sizeof(double complex));
@@ -744,6 +865,7 @@ int main(int argc, char **argv)
     double logZ = 0; // chose to have logZ to be a private variable
     double logZ_err = 0;
     bool zerostep; // move selection
+    bool maskflag; // move selection
     double temp1 = 0, temp2 = 0;
     // Randomization
 
@@ -788,6 +910,7 @@ int main(int argc, char **argv)
     // INITIALIZE IMAGE
     //
     initialize_image(iChain, image, element_x, element_y, initial_x, initial_y, axis_len, nwavr, nelements, &init_filename[0]);
+    //initialize_mask(iChain, image_mask, mask_element_x, mask_element_y, mask_x, mask_y, axis_len, nwavr, nelements, &mask_filename[0]);
 
     //
     // COMPUTE INITIAL REGULARIZER VALUE
@@ -1018,63 +1141,74 @@ int main(int argc, char **argv)
 
         if ((nparams == 0) || (current_elt < nelements)) /* Attempt image movement rather than parametric model movement */
           {
-
-            zerostep = TRUE;
-            // select step
-            while (zerostep == TRUE)
-              {
-                switch (steptype)
+                maskflag = TRUE;
+                zerostep = TRUE;
+                while (maskflag == TRUE)
+                {
+                  while (zerostep == TRUE)
                   {
-                  case STEP_SMALL: /* One step in either x or y direction */
-                    xstep = rlong % 4;
-                    rlong /= 4;
-                    if (xstep > 1) // 2 or 3, we select a y move
+                    switch (steptype)
                       {
-                        ystep = (xstep - 2) * 2 - 1;
-                        xstep = 0;
-                      }
-                    else // 0 or 1, we select a x movement
-                      {
-                        ystep = 0;
-                        xstep = xstep * 2 - 1;
-                      }
-                    break;
-                  case STEP_MEDIUM: /* Up to 2 steps in x and y direction */
-                    xstep = (rlong % 5) - 2;
-                    rlong /= 5;
-                    ystep = (rlong % 5) - 2;
-                    rlong /= 5;
-                    break;
-                  case STEP_ANYWHERE: /* Move flux anywhere in image */
-                    // xstep = (rlong % axis_len) - axis_len / 2;
-                    // rlong = RngStream_RandInt(rng, 0, 2147483647);
-                    // ystep = (rlong % axis_len) - axis_len / 2;
-                    // rlong /= axis_len;
-                    xstep = (RngStream_RandInt(rng, 0, 2147483647) % axis_len) - axis_len / 2;
-                    // rlong = RngStream_RandInt(rng, 0, 2147483647);
-                    ystep = (RngStream_RandInt(rng, 0, 2147483647) % axis_len) - axis_len / 2;
-                    // rlong /= axis_len;
-                    break;
+                        case STEP_SMALL: /* One step in either x or y direction */
+                          xstep = rlong % 4;
+                          rlong /= 4;
+                          if (xstep > 1) // 2 or 3, we select a y move
+                            {
+                              ystep = (xstep - 2) * 2 - 1;
+                              xstep = 0;
+                            }
+                            else // 0 or 1, we select a x movement
+                            {
+                              ystep = 0;
+                              xstep = xstep * 2 - 1;
+                            }
+                        break;
+                        case STEP_MEDIUM: /* Up to 2 steps in x and y direction */
+                          xstep = (rlong % 5) - 2;
+                          rlong /= 5;
+                          ystep = (rlong % 5) - 2;
+                          rlong /= 5;
+                        break;
+                        case STEP_ANYWHERE: /* Move flux anywhere in image */
+                          // xstep = (rlong % axis_len) - axis_len / 2;
+                          // rlong = RngStream_RandInt(rng, 0, 2147483647);
+                          // ystep = (rlong % axis_len) - axis_len / 2;
+                          // rlong /= axis_len;
+                          xstep = (RngStream_RandInt(rng, 0, 2147483647) % axis_len) - axis_len / 2;
+                          // rlong = RngStream_RandInt(rng, 0, 2147483647);
+                          ystep = (RngStream_RandInt(rng, 0, 2147483647) % axis_len) - axis_len / 2;
+                          // rlong /= axis_len;
+                        break;
 
-                  case STEP_COPYCAT: /* Copy the position of another element */
-                    xstep = element_x[chan * nelements + rlong % nelements] - element_x[chan * nelements + current_elt];
-                    ystep = element_y[chan * nelements + rlong % nelements] - element_y[chan * nelements + current_elt];
-                    rlong = RngStream_RandInt(rng, 0, 2147483647);
-                    break;
+                        case STEP_COPYCAT: /* Copy the position of another element */
+                          xstep = element_x[chan * nelements + rlong % nelements] - element_x[chan * nelements + current_elt];
+                          ystep = element_y[chan * nelements + rlong % nelements] - element_y[chan * nelements + current_elt];
+                          rlong = RngStream_RandInt(rng, 0, 2147483647);
+                        break;
+                      }
+                    if ((xstep != 0) || (ystep != 0))
+                      zerostep = FALSE;
+                    else // old position == new position --> we want to redraw
+                      rlong = RngStream_RandInt(rng, 0, 2147483647);
                   }
-                if ((xstep != 0) || (ystep != 0))
-                  zerostep = FALSE;
-                else // old position == new position --> we want to redraw
+
+                old_x = element_x[chan * nelements + current_elt];
+                old_y = element_y[chan * nelements + current_elt];
+                old_pos = chan * axis_len * axis_len + old_y * axis_len + old_x;
+
+                new_x = (element_x[chan * nelements + current_elt] + xstep + axis_len) % axis_len;
+                new_y = (element_y[chan * nelements + current_elt] + ystep + axis_len) % axis_len;
+                new_pos = chan * axis_len * axis_len + new_y * axis_len + new_x;
+                if (mask_image[new_pos]  > 0)
+                {
+                  maskflag = FALSE;
+                }
+                else
+                {
+                  zerostep = TRUE;
                   rlong = RngStream_RandInt(rng, 0, 2147483647);
+                }
               }
-
-            old_x = element_x[chan * nelements + current_elt];
-            old_y = element_y[chan * nelements + current_elt];
-            old_pos = chan * axis_len * axis_len + old_y * axis_len + old_x;
-
-            new_x = (element_x[chan * nelements + current_elt] + xstep + axis_len) % axis_len;
-            new_y = (element_y[chan * nelements + current_elt] + ystep + axis_len) % axis_len;
-            new_pos = chan * axis_len * axis_len + new_y * axis_len + new_x;
 
             //
             // Regularization update
@@ -1140,6 +1274,10 @@ int main(int argc, char **argv)
             if (reg_param[REG_L1ATROUS] > 0.0)
               new_reg_value[chan * NREGULS + REG_L1ATROUS] =
                   L1_ATROUS(&image[chan * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, (const double)nelements);
+
+            if (reg_param[REG_EDGE] > 0.0)
+              new_reg_value[chan * NREGULS + REG_EDGE] =
+                  EDGE(&image[chan * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, (const double) nelements);
 
             // printf("%lf ", fabs(new_reg_value[REG_TRANSPECL2]-transpec(nwavr, axis_len, image, (const double) nelements)));
             //       if (reg_param[REG_TRANSPECL2] > 0.0)
@@ -1373,7 +1511,7 @@ int main(int argc, char **argv)
     free(res);
     free(mod_obs);
     free(image);
-
+    free(image_mask);
     free(fluxratio_image);
     free(new_fluxratio_image);
 
@@ -1533,6 +1671,7 @@ int main(int argc, char **argv)
 
   free(initial_x);
   free(initial_y);
+  free(mask_image);
   free(prior_image);
   return 0;
 }
@@ -1635,6 +1774,7 @@ void printhelp(void)
   printf("  -ud param     : Uniform disc regularization multiplier.\n");
   printf("  -tv param     : Total variation regularization multiplier.\n");
   printf("  -la param     : Laplacian regularization multiplier.\n");
+  printf("  -edge param   : Edge focused regularization multiplier.\n");
   printf("  -l0 param     : L0 sparsity pseudo-norm multiplier.\n");
   printf("  -ts param     : Transpectral L2 regularization for polychromatic reconstructions.\n");
   printf("  -fv param     : Field of view regularizer.\n");
@@ -1643,6 +1783,8 @@ void printhelp(void)
   printf("  -i file.fits  : Initial image will be read from a FITS file.\n");
   printf("  -i random     : Initial image will be random, and common to all chain/wavelengths.\n");
   printf("  -i randomthr  : Initial image will be random, with a different image for each chain.\n");
+  printf("  -m file.fits  : Mask image will be read from a FITS file.\n");
+
 
   printf("\n***** CONVERGENCE SETTINGS ***** \n");
   printf("  -tm tmin      : Mininmum temperature (default 1.0 for MCMC).\n");
@@ -2758,6 +2900,9 @@ void compute_regularizers(const double *reg_param, double *reg_value, const doub
       if (reg_param[REG_LAP] > 0.0)
         reg_value[w * NREGULS + REG_LAP] = LAP(&image[w * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, fluxscaling);
 
+      if (reg_param[REG_EDGE] > 0.0)
+        reg_value[w * NREGULS + REG_EDGE] = EDGE(&image[w * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, fluxscaling);
+
       if (reg_param[REG_L0] > 0.0)
         reg_value[w * NREGULS + REG_L0] = L0(&image[w * axis_len * axis_len], NULL, 0.0, axis_len, axis_len, fluxscaling);
 
@@ -2918,11 +3063,12 @@ void initialize_image(int iChain, double *image, unsigned short *element_x, unsi
       image[w * axis_len * axis_len + element_y[w * nelements + i] * axis_len + element_x[w * nelements + i]]++;
 }
 
+
 bool read_commandline(int *argc, char **argv, bool *benchmark, bool *use_visamp, bool *use_v2, bool *use_t3amp, bool *use_t4amp, bool *use_visphi,
                       bool *use_t3phi, bool *use_t4phi, bool *diffvis, bool *use_tempfitswriting, bool *use_bandwidthsmearing, int *minimization_engine,
                       bool *dumpchain, double *mas_pixel, unsigned short *axis_len, long *depth, long *niter, long *nelements, double *f_anywhere,
                       double *f_copycat, int *nchains, int *nthreads, double *tempschedc, double *fov, double *chi2_temp, double *chi2_target, double *tmin,
-                      double *prob_auto, double *uvtol, char *output_filename, char *init_filename, char *prior_filename, double *visamps, double *visampa,
+                      double *prob_auto, double *uvtol, char *output_filename, char *init_filename, char *prior_filename, char *mask_filename, double *visamps, double *visampa,
                       double *visphis, double *visphia, double *v2s, double *v2a, double *t3amps, double *t3ampa, double *t3phia, double *t3phis,
                       double *t4amps, double *t4ampa, double *t4phia, double *t4phis, double *fluxs, double *cvfwhm, double *reg_param, double *init_param,
                       double **pwavmin, double **pwavmax, int *nwavr, bool *wavauto)
@@ -3066,6 +3212,8 @@ bool read_commandline(int *argc, char **argv, bool *benchmark, bool *use_visamp,
             sscanf(argv[i + 1], "%lf", &reg_param[REG_TV]);
           else if (strcmp(argv[i], "-la") == 0)
             sscanf(argv[i + 1], "%lf", &reg_param[REG_LAP]);
+          else if (strcmp(argv[i], "-edge") == 0)
+            sscanf(argv[i + 1], "%lf", &reg_param[REG_EDGE]);
           else if (strcmp(argv[i], "-l0CDF53") == 0)
             sscanf(argv[i + 1], "%lf", &reg_param[REG_L0CDF53]);
           else if (strcmp(argv[i], "-l1CDF53") == 0)
@@ -3118,6 +3266,8 @@ bool read_commandline(int *argc, char **argv, bool *benchmark, bool *use_visamp,
             sscanf(argv[i + 1], "%s", init_filename);
           else if (strcmp(argv[i], "-p") == 0)
             sscanf(argv[i + 1], "%s", prior_filename);
+          else if (strcmp(argv[i], "-m") == 0)
+            sscanf(argv[i + 1], "%s", mask_filename);
           else if (strcmp(argv[i], "-v2s") == 0)
             {
               sscanf(argv[i + 1], "%lf", v2s);

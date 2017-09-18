@@ -1,0 +1,1 @@
+/usr/bin/cc     CMakeFiles/Fitscopy.dir/fitscopy.c.o  -o Fitscopy -rdynamic libcfitsio.a -lpthread -lm 

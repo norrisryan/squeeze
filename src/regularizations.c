@@ -338,6 +338,162 @@ double LAP(const double *x, const double *pr, const double eps, const int nx, co
   return reg / flux;
 }
 
+double EDGE(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux)
+{
+  // This regularizer is the Lp norm (p=0.5) on the local gradient
+  // It is somehow similar to the total variation, which is the L1 norm
+  // the gradient is evaluated by backward difference, e is the threshold
+  // by definition, L05g(x) = (sum( |grad im|^.5 ))^2
+  // Note: all image borders are ignored
+
+// also ignore if pixel borders an area of prior with logp < -13.8
+// corresponding to a value in the prior image of about 1-e6
+
+  register int i, j, m, n, off,offnonz, nnonz;
+  double dx, dy, pixreg,totalnonz, averagenonz, mediannonz,lap,maxpix,minpix,thresh;
+
+
+  //  double pr_threshold=-13.8;
+
+ double L05edge = - sqrt(eps) * (double)(nx * ny) ;
+double  L1edge = 0.0;
+nnonz=0.0;
+totalnonz=0.0;
+lap=0.0;
+maxpix=0.0;
+minpix=100000000;
+//calculate mean of non zero pixels
+for (m= 0; m <(ny*nx) ; m++)
+	{
+	if (x[m] >0.0)
+		{
+     if (x[m]> maxpix)
+     {
+       maxpix=x[m];
+     }
+     if (x[m]< minpix)
+      {
+        minpix=x[m];
+      }
+     totalnonz+=x[m];
+		 nnonz=nnonz+1;
+		}
+	}
+averagenonz=totalnonz/nnonz;
+mediannonz=(maxpix/maxpix-minpix/maxpix)/2.0;
+thresh=mediannonz/averagenonz;
+//compute lapacian and penalize spots with shifts if pixel average flux is greater than 1.3*average
+
+   for (j = 1; j < ny - 1; j++)
+  {
+    off = nx * j;
+    for (i = 1; i < nx - 1; i++)
+	{
+	lap=fabs(x[ i - 1 + off] + x[i + 1 + off] + x[i + off - nx] + x[i + off + nx] - 4. * x[i + off]);
+		if (i > 0)
+     		 {
+       			 dx = x[ i + off] - x[ i - 1 + off];
+    	  	 }
+      		else
+      		{
+        		dx = x[ 1 + off] - x[ off];
+      		}
+
+   	   	if (j > 0)
+    	  	{
+    		    	dy = x[ i + off] - x[i + off - nx];
+   	   	}
+    	  	else
+    	  	{
+    	  		dy = x[i + nx] - x[ i ];
+     	 	}
+    	  	pixreg = sqrt(sqrt(dx * dx + dy * dy + eps * eps));
+	if (abs(lap) > 0)
+	{
+		if (x[i+off]<thresh) //instead of 0.8*averagenonz
+		{
+			L05edge+=pixreg;
+		}
+		else
+		{
+			L1edge+=lap;
+		}
+
+	}
+
+    // case i = 0
+      lap= fabs(x[1 + off] + x[off - nx] + x[off + nx] - 3. * x[off]);
+	if (abs(lap) > 0)
+	{
+		if (x[i+off]<thresh)
+		{
+			L05edge+=pixreg;
+		}
+		else
+		{
+			L1edge+=lap;
+		}
+
+	}
+    // case i = nx -1
+    lap= fabs(x[ nx - 2 + off] + x[nx - 1 + off - nx] + x[nx - 1  + off + nx] - 3. * x[nx - 1 + off]);
+	if (lap > 0)
+	{
+		if (x[i+off]<thresh)
+		{
+			L05edge+=pixreg;
+		}
+		else
+		{
+			L1edge+=lap;
+		}
+
+	}
+  }
+  for (i = 1; i < nx - 1; i++)
+  {
+    // case j = 0
+    off = 0 ;
+    lap= fabs(x[ i - 1 ] + x[i + 1] + x[i + off + nx] - 3. * x[i + off]);
+    if (abs(lap) > 0)
+	{
+		if (x[i+off] < thresh)
+		{
+			L05edge+=pixreg;
+		}
+		else
+		{
+			L1edge+=lap;
+		}
+
+	}
+    // case j = nx -1
+    off = nx * (nx - 1);
+    lap= fabs(x[ i - 1 + off] + x[i + 1 + off] + x[i + off - nx] - 3. * x[i + off]);
+  if (abs(lap) > 0)
+	{
+		if (x[i+off] < thresh)
+		{
+			L05edge+=pixreg;
+		}
+		else
+		{
+			L1edge+=lap;
+		}
+
+//	}
+
+  }
+}
+}
+
+L1edge=L1edge+(L05edge/100.);
+
+//   return L05g;
+
+  return L1edge / flux;
+}
+
 double reg_prior_image(const double *x, const double *pr, const double eps, const int nx, const int ny, const double flux)
 {
   register int i;

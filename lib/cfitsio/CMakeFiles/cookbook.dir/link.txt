@@ -1,0 +1,1 @@
+/usr/bin/cc     CMakeFiles/cookbook.dir/cookbook.c.o  -o cookbook -rdynamic libcfitsio.a -lpthread -lm 
